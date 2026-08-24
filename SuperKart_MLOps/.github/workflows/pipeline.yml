@@ -35,7 +35,6 @@ jobs:
 
       - name: Set up Python
         uses: actions/setup-python@v5
-
         with:
           python-version: "3.11"
           cache: "pip"
@@ -46,13 +45,9 @@ jobs:
       # ======================================================
 
       - name: Install Dependencies
-
         working-directory: SuperKart_MLOps
-
         run: |
-
           python -m pip install --upgrade pip
-
           pip install -r app/requirements.txt
 
 
@@ -61,14 +56,16 @@ jobs:
       # ======================================================
 
       - name: Verify Project Structure
-
         run: |
 
           echo "=========================================="
           echo "SUPERKART MLOPS PROJECT STRUCTURE"
           echo "=========================================="
 
-          ls -la
+          test -d SuperKart_MLOps
+          test -d SuperKart_MLOps/model_building
+          test -d SuperKart_MLOps/deployment
+          test -d SuperKart_MLOps/app
 
           echo ""
           echo "Project directory:"
@@ -82,18 +79,65 @@ jobs:
           echo "Deployment files:"
           ls -la SuperKart_MLOps/deployment
 
+          echo ""
+          echo "Application files:"
+          ls -la SuperKart_MLOps/app
+
+          echo ""
+          echo "Project structure verified."
+
 
       # ======================================================
-      # 5. DATA PREPARATION
+      # 5. VERIFY HUGGING FACE TOKEN
+      # ======================================================
+
+      - name: Verify Hugging Face Authentication
+        working-directory: SuperKart_MLOps
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+
+          echo "=========================================="
+          echo "VERIFY HUGGING FACE AUTHENTICATION"
+          echo "=========================================="
+
+          if [ -z "$HF_TOKEN" ]; then
+            echo "ERROR: HF_TOKEN GitHub secret is missing."
+            exit 1
+          fi
+
+          python - <<'PY'
+
+          import os
+          from huggingface_hub import whoami
+
+          token = os.environ.get("HF_TOKEN")
+
+          if not token:
+              raise ValueError(
+                  "HF_TOKEN environment variable is missing."
+              )
+
+          user = whoami(token=token)
+
+          print(
+              "Authenticated Hugging Face user:",
+              user["name"]
+          )
+
+          print("Hugging Face authentication verified.")
+
+          PY
+
+
+      # ======================================================
+      # 6. DATA PREPARATION
       # ======================================================
 
       - name: Download and Prepare Data
-
         working-directory: SuperKart_MLOps
-
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-
         run: |
 
           echo "=========================================="
@@ -104,18 +148,19 @@ jobs:
 
 
       # ======================================================
-      # 6. VERIFY TRAIN AND TEST DATA
+      # 7. VERIFY TRAIN AND TEST DATA
       # ======================================================
 
       - name: Verify Prepared Data
-
         working-directory: SuperKart_MLOps
-
         run: |
 
           echo "=========================================="
           echo "VERIFY TRAINING AND TEST DATA"
           echo "=========================================="
+
+          test -f data/processed/train.csv
+          test -f data/processed/test.csv
 
           ls -lh data/processed/
 
@@ -140,8 +185,11 @@ jobs:
           print("\nTesting columns:")
           print(test.columns.tolist())
 
-          assert len(train) > 0
-          assert len(test) > 0
+          if len(train) == 0:
+              raise ValueError("Training dataset is empty.")
+
+          if len(test) == 0:
+              raise ValueError("Testing dataset is empty.")
 
           print("\nTrain/test datasets verified.")
 
@@ -149,13 +197,11 @@ jobs:
 
 
       # ======================================================
-      # 7. MODEL TRAINING AND TUNING
+      # 8. MODEL TRAINING AND TUNING
       # ======================================================
 
       - name: Train and Tune Models
-
         working-directory: SuperKart_MLOps
-
         run: |
 
           echo "=========================================="
@@ -166,40 +212,34 @@ jobs:
 
 
       # ======================================================
-      # 8. VERIFY TRAINED MODEL
+      # 9. VERIFY TRAINED MODEL
       # ======================================================
 
       - name: Verify Trained Model
-
         working-directory: SuperKart_MLOps
-
         run: |
 
           echo "=========================================="
           echo "VERIFY TRAINED MODEL"
           echo "=========================================="
 
-          ls -lh models/
-
           test -f models/superkart_sales_model.joblib
-
           test -f models/model_metadata.json
+
+          ls -lh models/
 
           echo ""
           echo "Trained model verified."
 
 
       # ======================================================
-      # 9. REGISTER MODEL ON HUGGING FACE
+      # 10. REGISTER BEST MODEL ON HUGGING FACE
       # ======================================================
 
       - name: Register Best Model on Hugging Face
-
         working-directory: SuperKart_MLOps
-
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-
         run: |
 
           echo "=========================================="
@@ -210,18 +250,14 @@ jobs:
 
 
       # ======================================================
-      # 10. DEPLOY STREAMLIT APPLICATION
+      # 11. DEPLOY STREAMLIT APPLICATION
       # ======================================================
 
       - name: Deploy Streamlit Application
-
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
         working-directory: SuperKart_MLOps
-
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-
         run: |
 
           echo "=========================================="
@@ -232,13 +268,11 @@ jobs:
 
 
       # ======================================================
-      # 11. PIPELINE SUMMARY
+      # 12. PIPELINE SUMMARY
       # ======================================================
 
       - name: Pipeline Summary
-
         if: success()
-
         run: |
 
           echo ""
@@ -246,6 +280,7 @@ jobs:
           echo "SUPERKART MLOPS PIPELINE COMPLETED"
           echo "=========================================="
 
+          echo ""
           echo "Data preparation       : SUCCESS"
           echo "Model training         : SUCCESS"
           echo "Model tuning           : SUCCESS"
@@ -253,8 +288,14 @@ jobs:
           echo "Streamlit deployment   : SUCCESS"
 
           echo ""
+          echo "GitHub Repository:"
+          echo "ranadipmajumdar-hub/SUPERKART_MLOPS"
+
+          echo ""
           echo "Hugging Face Space:"
-          echo "https://huggingface.co/spaces/ranadipmajumdar/Superkart_MLOps"
+          echo "ranadipmajumdar/Superkart_MLOps"
 
           echo ""
           echo "=========================================="
+
+# PASTE THE YAML ABOVE HERE
