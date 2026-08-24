@@ -1,0 +1,44 @@
+name: SuperKart MLOps CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run Data & Model Pipeline
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python SuperKart_MLOps/model_building/data_register.py
+          python SuperKart_MLOps/model_building/prep.py
+          python SuperKart_MLOps/model_building/train.py
+
+      - name: Deploy to Hugging Face Space
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python SuperKart_MLOps/deployment/deploy.py
