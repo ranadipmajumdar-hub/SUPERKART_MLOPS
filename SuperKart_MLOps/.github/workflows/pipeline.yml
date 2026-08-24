@@ -2,7 +2,6 @@
 name: SuperKart MLOps CI/CD Pipeline
 
 on:
-
   push:
     branches:
       - main
@@ -27,7 +26,6 @@ jobs:
       # ======================================================
 
       - name: Checkout Code
-
         uses: actions/checkout@v4
 
 
@@ -36,7 +34,6 @@ jobs:
       # ======================================================
 
       - name: Set up Python
-
         uses: actions/setup-python@v5
 
         with:
@@ -146,13 +143,13 @@ jobs:
           assert len(train) > 0
           assert len(test) > 0
 
-          print("\n✅ Train/test datasets verified.")
+          print("\nTrain/test datasets verified.")
 
           PY
 
 
       # ======================================================
-      # 7. MODEL TRAINING + TUNING
+      # 7. MODEL TRAINING AND TUNING
       # ======================================================
 
       - name: Train and Tune Models
@@ -162,7 +159,7 @@ jobs:
         run: |
 
           echo "=========================================="
-          echo "MODEL TRAINING AND HYPERPARAMETER TUNING"
+          echo "MODEL TRAINING AND TUNING"
           echo "=========================================="
 
           python model_building/model_train.py
@@ -189,12 +186,7 @@ jobs:
           test -f models/model_metadata.json
 
           echo ""
-          echo "✅ Trained model exists."
-
-          echo ""
-          echo "Model metadata:"
-
-          cat models/model_metadata.json
+          echo "Trained model verified."
 
 
       # ======================================================
@@ -240,7 +232,7 @@ jobs:
 
 
       # ======================================================
-      # 11. PIPELINE COMPLETED
+      # 11. PIPELINE SUMMARY
       # ======================================================
 
       - name: Pipeline Summary
@@ -254,15 +246,11 @@ jobs:
           echo "SUPERKART MLOPS PIPELINE COMPLETED"
           echo "=========================================="
 
-          echo ""
-          echo "✅ Data downloaded from Hugging Face"
-          echo "✅ Data prepared"
-          echo "✅ Train/test datasets created"
-          echo "✅ Models trained"
-          echo "✅ Hyperparameter tuning completed"
-          echo "✅ Best model selected"
-          echo "✅ Model registered on Hugging Face"
-          echo "✅ Streamlit application deployed"
+          echo "Data preparation       : SUCCESS"
+          echo "Model training         : SUCCESS"
+          echo "Model tuning           : SUCCESS"
+          echo "Model registration     : SUCCESS"
+          echo "Streamlit deployment   : SUCCESS"
 
           echo ""
           echo "Hugging Face Space:"
