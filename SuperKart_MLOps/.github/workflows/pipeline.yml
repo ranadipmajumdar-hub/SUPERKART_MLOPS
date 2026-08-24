@@ -1,44 +1,272 @@
+
 name: SuperKart MLOps CI/CD Pipeline
 
 on:
+
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
+
   workflow_dispatch:
 
+
 jobs:
-  build-and-test:
+
+  mlops-pipeline:
+
     runs-on: ubuntu-latest
 
     steps:
+
+      # ======================================================
+      # 1. CHECKOUT CODE
+      # ======================================================
+
       - name: Checkout Code
-        uses: actions/checkout@v3
+
+        uses: actions/checkout@v4
+
+
+      # ======================================================
+      # 2. SET UP PYTHON
+      # ======================================================
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+
+        uses: actions/setup-python@v5
+
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: "pip"
+
+
+      # ======================================================
+      # 3. INSTALL DEPENDENCIES
+      # ======================================================
 
       - name: Install Dependencies
+
+        working-directory: SuperKart_MLOps
+
         run: |
+
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run Data & Model Pipeline
+          pip install -r app/requirements.txt
+
+
+      # ======================================================
+      # 4. VERIFY PROJECT STRUCTURE
+      # ======================================================
+
+      - name: Verify Project Structure
+
+        run: |
+
+          echo "=========================================="
+          echo "SUPERKART MLOPS PROJECT STRUCTURE"
+          echo "=========================================="
+
+          ls -la
+
+          echo ""
+          echo "Project directory:"
+          ls -la SuperKart_MLOps
+
+          echo ""
+          echo "Model building files:"
+          ls -la SuperKart_MLOps/model_building
+
+          echo ""
+          echo "Deployment files:"
+          ls -la SuperKart_MLOps/deployment
+
+
+      # ======================================================
+      # 5. DATA PREPARATION
+      # ======================================================
+
+      - name: Download and Prepare Data
+
+        working-directory: SuperKart_MLOps
+
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          python SuperKart_MLOps/model_building/data_register.py
-          python SuperKart_MLOps/model_building/prep.py
-          python SuperKart_MLOps/model_building/train.py
 
-      - name: Deploy to Hugging Face Space
+        run: |
+
+          echo "=========================================="
+          echo "DATA PREPARATION"
+          echo "=========================================="
+
+          python model_building/data_preparation.py
+
+
+      # ======================================================
+      # 6. VERIFY TRAIN AND TEST DATA
+      # ======================================================
+
+      - name: Verify Prepared Data
+
+        working-directory: SuperKart_MLOps
+
+        run: |
+
+          echo "=========================================="
+          echo "VERIFY TRAINING AND TEST DATA"
+          echo "=========================================="
+
+          ls -lh data/processed/
+
+          python - <<'PY'
+
+          import pandas as pd
+
+          train = pd.read_csv(
+              "data/processed/train.csv"
+          )
+
+          test = pd.read_csv(
+              "data/processed/test.csv"
+          )
+
+          print("Training shape:", train.shape)
+          print("Testing shape:", test.shape)
+
+          print("\nTraining columns:")
+          print(train.columns.tolist())
+
+          print("\nTesting columns:")
+          print(test.columns.tolist())
+
+          assert len(train) > 0
+          assert len(test) > 0
+
+          print("\n✅ Train/test datasets verified.")
+
+          PY
+
+
+      # ======================================================
+      # 7. MODEL TRAINING + TUNING
+      # ======================================================
+
+      - name: Train and Tune Models
+
+        working-directory: SuperKart_MLOps
+
+        run: |
+
+          echo "=========================================="
+          echo "MODEL TRAINING AND HYPERPARAMETER TUNING"
+          echo "=========================================="
+
+          python model_building/model_train.py
+
+
+      # ======================================================
+      # 8. VERIFY TRAINED MODEL
+      # ======================================================
+
+      - name: Verify Trained Model
+
+        working-directory: SuperKart_MLOps
+
+        run: |
+
+          echo "=========================================="
+          echo "VERIFY TRAINED MODEL"
+          echo "=========================================="
+
+          ls -lh models/
+
+          test -f models/superkart_sales_model.joblib
+
+          test -f models/model_metadata.json
+
+          echo ""
+          echo "✅ Trained model exists."
+
+          echo ""
+          echo "Model metadata:"
+
+          cat models/model_metadata.json
+
+
+      # ======================================================
+      # 9. REGISTER MODEL ON HUGGING FACE
+      # ======================================================
+
+      - name: Register Best Model on Hugging Face
+
+        working-directory: SuperKart_MLOps
+
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+        run: |
+
+          echo "=========================================="
+          echo "MODEL REGISTRATION"
+          echo "=========================================="
+
+          python model_building/model_register.py
+
+
+      # ======================================================
+      # 10. DEPLOY STREAMLIT APPLICATION
+      # ======================================================
+
+      - name: Deploy Streamlit Application
+
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+        working-directory: SuperKart_MLOps
+
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
         run: |
-          python SuperKart_MLOps/deployment/deploy.py
+
+          echo "=========================================="
+          echo "HUGGING FACE SPACE DEPLOYMENT"
+          echo "=========================================="
+
+          python deployment/deploy.py
+
+
+      # ======================================================
+      # 11. PIPELINE COMPLETED
+      # ======================================================
+
+      - name: Pipeline Summary
+
+        if: success()
+
+        run: |
+
+          echo ""
+          echo "=========================================="
+          echo "SUPERKART MLOPS PIPELINE COMPLETED"
+          echo "=========================================="
+
+          echo ""
+          echo "✅ Data downloaded from Hugging Face"
+          echo "✅ Data prepared"
+          echo "✅ Train/test datasets created"
+          echo "✅ Models trained"
+          echo "✅ Hyperparameter tuning completed"
+          echo "✅ Best model selected"
+          echo "✅ Model registered on Hugging Face"
+          echo "✅ Streamlit application deployed"
+
+          echo ""
+          echo "Hugging Face Space:"
+          echo "https://huggingface.co/spaces/ranadipmajumdar/Superkart_MLOps"
+
+          echo ""
+          echo "=========================================="
