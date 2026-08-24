@@ -1,50 +1,15 @@
-
 FROM python:3.11-slim
-
-# ============================================================
-# WORKING DIRECTORY
-# ============================================================
 
 WORKDIR /app
 
+COPY app/requirements.txt /app/requirements.txt
 
-# ============================================================
-# COPY DEPENDENCIES
-# ============================================================
+RUN pip install --no-cache-dir --upgrade pip &&     pip install --no-cache-dir -r /app/requirements.txt
 
-COPY app/requirements.txt .
+COPY app/ /app/
 
-
-# ============================================================
-# INSTALL DEPENDENCIES
-# ============================================================
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-
-# ============================================================
-# COPY STREAMLIT APPLICATION
-# ============================================================
-
-COPY app/app.py .
-
-
-# ============================================================
-# HUGGING FACE SPACE PORT
-# ============================================================
+COPY models/ /app/models/
 
 EXPOSE 7860
 
-
-# ============================================================
-# START STREAMLIT
-# ============================================================
-
-CMD [
-    "streamlit",
-    "run",
-    "app.py",
-    "--server.port=7860",
-    "--server.address=0.0.0.0",
-    "--server.headless=true"
-]
+CMD ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
